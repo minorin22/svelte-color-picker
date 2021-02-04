@@ -1,4 +1,4 @@
-# Svelte Color Picker
+# Svelte Color Picker [\[Demo Site\]](https://minorin22.github.io/svelte-color-picker/)
 The fork of [Svelte Color Picker](https://github.com/efeskucuk/svelte-color-picker).
 
 Supporting Two way data binding. Written by TypeScript and SCSS.
@@ -15,7 +15,7 @@ $ npm i minorin22/svelte-color-picker
 In your component :
 ```jsx
 <script>
-import {HsvPicker} from 'svelte-color-picker';
+import HsvPicker from 'svelte-color-picker/src/HsvPicker.svelte';
 
 function colorCallback(rgba) {
 	console.log(rgba.detail)
