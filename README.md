@@ -1,11 +1,14 @@
-# Svelte Color Picker [\[Demo Page\]](https://efeskucuk.github.io/svelte-color-picker/)
- [![svelte-v3](https://img.shields.io/badge/svelte-v3-blueviolet.svg)](https://svelte.dev)
+# Svelte Color Picker
+The fork of [Svelte Color Picker](https://github.com/efeskucuk/svelte-color-picker).
+
+Supporting Two way data binding. Written by TypeScript and SCSS.
+
 ## Installation
 
 With npm
 ```sh
 $ cd yourSvelteProject
-$ npm i svelte-color-picker
+$ npm i minorin22/svelte-color-picker
 ```
 
 ## Usage

@@ -1,8 +1,20 @@
-<script>
+<script lang="ts">
 import {onMount,createEventDispatcher} from 'svelte';
 
-export let startColor ="#FF0000";
-
+export let startColor: string;
+let mainColor: string = '#000000';
+let subColor: string = '#FFFFFF'
+let alpha: number = 1;
+let isMainOrSub: boolean = true;
+let alpha100: string;
+$: alpha100 = Math.round(alpha * 100) + "%";
+let mainColorElement: HTMLElement;
+let subColorElement: HTMLElement;
+let mainSelectedColor: HTMLElement;
+let subSelectedColor: HTMLElement;
+let alphaInput: HTMLElement;
+let hexInput: HTMLElement;
+(isMainOrSub)?startColor = mainColor:startColor = subColor;
 onMount(() => {
  document.addEventListener("mouseup", mouseUp);
  document.addEventListener("touchend", mouseUp);
@@ -10,31 +22,104 @@ onMount(() => {
  document.addEventListener("touchmove", touchMove);
  document.addEventListener("touchstart", killMouseEvents);
  document.addEventListener("mousedown", killTouchEvents);
- setStartColor()
+ setStartColor();
+ mainColorElement = document.getElementById('maincolor');
+ subColorElement = document.getElementById('subcolor');
+ mainSelectedColor = document.querySelector('.mainSelectedColor');
+ subSelectedColor = document.querySelector('.subSelectedColor');
+ alphaInput = document.querySelector('#alphaInput');
+ hexInput = document.querySelector('#hexInput');
+ alphaInput.addEventListener('keypress', setAlpha);
+ hexInput.addEventListener('keypress', setColor);
+ mainSelectedColor.style.background = mainColor;
+ subSelectedColor.style.background = subColor;
+ if(isMainOrSub){
+   mainColorElement.style.zIndex = '1';
+   subColorElement.style.zIndex = '0';
+ } else {
+   mainColorElement.style.zIndex = '0';
+   subColorElement.style.zIndex = '1';
+ }
+ mainColorElement.onclick = ()=> {
+   mainColorElement.style.zIndex = '1';
+   subColorElement.style.zIndex = '0';
+   startColor = mainColor;
+   isMainOrSub = true;
+   setStartColor();
+ }
+ subColorElement.onclick = ()=> {
+   mainColorElement.style.zIndex = '0';
+   subColorElement.style.zIndex = '1';
+   startColor = subColor;
+   isMainOrSub = false;
+   setStartColor();
+ }
 });
+
 
 Number.prototype.mod = function(n) {
     return ((this%n)+n)%n;
 };
 const dispatch = createEventDispatcher();
 let tracked;
-let h = 1;
-let s = 1;
-let v = 1;
-let a = 1;
-let r = 255;
-let g = 0;
-let b = 0;
-let hexValue = '#FF0000';
+let h: number = 1;
+let s: number = 1;
+let v: number = 1;
+let r: number = 255;
+let g: number = 0;
+let b: number = 0;
+let hexValue: string;
+
+const setAlpha = (e)=>{
+  let a: number;
+  if (e.keyCode === 13 || e.keyCode === 9) {
+    if (alpha100.match(/[0-9]/)) a = parseInt(alpha100, 10) / 100;
+    if (a < 0) a = 0;
+    if (a > 1) a = 1;
+    alpha = a;
+    updateAlphaPicker();
+    colorChange();
+  }
+}
+
+const setColor = (e)=>{
+  if (e.keyCode === 13 || e.keyCode === 9) {
+    if (isMainOrSub) {
+      mainColor = hexValue;
+      startColor = mainColor;
+    } else {
+      subColor = hexValue;
+      startColor = subColor;
+    }
+    setStartColor();
+  }
+}
 
 
 function setStartColor() {
-  let hex = startColor.replace('#','');
-  if (hex.length !== 6 && hex.length !== 3 && !hex.match(/([^A-F0-9])/gi)) {
+  let hex: string = startColor.replace('#','');
+  if (hex.match(/([^A-F0-9])/gi)) {
     alert('Invalid property value (startColor)');
     return;
   }
-  let hexFiltered='';
+  switch (hex.length){
+    case 0:
+      hex = '000';
+      break;
+    case 1:
+      hex += '00';
+      break;
+    case 2:
+      hex += '0';
+      break;
+    case 4:
+      hex += '00';
+      break;
+    case 5:
+      hex += '0';
+      break;
+  }
+  let hexFiltered: string='';
   if (hex.length === 3)
     hex.split('').forEach( c => {hexFiltered += c+c;});
   else
@@ -46,10 +131,11 @@ function setStartColor() {
   rgbToHSV(r,g,b,true);
   updateCsPicker();
   updateHuePicker();
+  updateAlphaPicker();
 }
 
 function removeEventListenerFromElement(elementId, eventName, listenerCallback) {
-  let element = document.querySelector(elementId);
+  let element: HTMLElement = document.querySelector(elementId);
   if (element) element.removeEventListener(eventName, listenerCallback);
 }
 
@@ -74,17 +160,27 @@ function killTouchEvents() {
 }
 
 function updateCsPicker() {
-  let csPicker = document.querySelector("#colorsquare-picker");
-  let xPercentage = s * 100;
-  let yPercentage = (1 - v) * 100;
+  let csPicker: HTMLElement = document.querySelector("#colorsquare-picker");
+  let xPercentage: number = s * 100;
+  let yPercentage: number = (1 - v) * 100;
   csPicker.style.top = yPercentage + "%";
   csPicker.style.left = xPercentage + "%";
 }
 
 function updateHuePicker() {
-  let huePicker = document.querySelector("#hue-picker");
-  let xPercentage = h * 100;
-  huePicker.style.left = xPercentage + "%";
+  let huePicker: HTMLElement = document.querySelector("#hue-picker");
+  let yPercentage: number = h * 100;
+  let hueTop: number = 100 - yPercentage;
+  while(hueTop < 0){
+    hueTop += 100;
+  }
+  huePicker.style.top = hueTop + "%";
+}
+
+function updateAlphaPicker() {
+  let alphaPicker: HTMLElement = document.querySelector("#alpha-picker");
+  let yPercentage: number = alpha * 100;
+  alphaPicker.style.top = 100 - yPercentage + "%";
 }
 
 function colorChangeCallback() {
@@ -92,20 +188,20 @@ function colorChangeCallback() {
   			r: r,
         g: g,
         b: b,
-        a: a
+        a: alpha
   		});
 }
 
 function mouseMove(event) {
  if (tracked) {
-  let mouseX = event.clientX;
-  let mouseY = event.clientY;
+  let mouseX: number = event.clientX;
+  let mouseY: number = event.clientY;
   let trackedPos = tracked.getBoundingClientRect();
-  let xPercentage, yPercentage, picker;
+  let xPercentage: any, yPercentage: any, picker: HTMLElement;
   switch (tracked.id) {
    case "colorsquare-event":
-    xPercentage = (mouseX - trackedPos.x) / 240 * 100;
-    yPercentage = (mouseY - trackedPos.y) / 160 * 100;
+    xPercentage = (mouseX - trackedPos.x) / 176 * 100;
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
     (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
     (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
     picker = document.querySelector("#colorsquare-picker");
@@ -118,21 +214,21 @@ function mouseMove(event) {
     colorChange();
     break;
    case "hue-event":
-    xPercentage = (mouseX - 10 - trackedPos.x) / 220 * 100;
-    (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
-    xPercentage = xPercentage.toFixed(2);
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
+    (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
+    yPercentage = yPercentage.toFixed(2);
     picker = document.querySelector("#hue-picker");
-    picker.style.left = xPercentage + "%";
-    h = xPercentage / 100;
+    picker.style.top = yPercentage + "%";
+    h = 1 - yPercentage / 100;
     hueChange();
     break;
    case "alpha-event":
-    xPercentage = (mouseX - 10 - trackedPos.x) / 220 * 100;
-    (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
-    xPercentage = xPercentage.toFixed(2);
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
+    (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
+    yPercentage = yPercentage.toFixed(2);
     picker = document.querySelector("#alpha-picker");
-    picker.style.left = xPercentage + "%";
-    a = xPercentage / 100;
+    picker.style.top = yPercentage + "%";
+    alpha = 1 - yPercentage / 100;
     colorChange();
     break;
   }
@@ -143,14 +239,14 @@ function mouseMove(event) {
 
 function touchMove(event) {
  if (tracked) {
-  let mouseX = event.touches[0].clientX;
-  let mouseY = event.touches[0].clientY;
+  let mouseX: number = event.touches[0].clientX;
+  let mouseY: number = event.touches[0].clientY;
   let trackedPos = tracked.getBoundingClientRect();
-  let xPercentage, yPercentage, picker;
+  let xPercentage: any, yPercentage: any, picker: HTMLElement;
   switch (tracked.id) {
    case "colorsquare-event":
-    xPercentage = (mouseX - trackedPos.x) / 240 * 100;
-    yPercentage = (mouseY - trackedPos.y) / 160 * 100;
+    xPercentage = (mouseX - trackedPos.x) / 176 * 100;
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
     (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
     (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
     picker = document.querySelector("#colorsquare-picker");
@@ -163,21 +259,21 @@ function touchMove(event) {
     colorChange();
     break;
    case "hue-event":
-    xPercentage = (mouseX - 10 - trackedPos.x) / 220 * 100;
-    (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
-    xPercentage = xPercentage.toFixed(2);
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
+    (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
+    yPercentage = yPercentage.toFixed(2);
     picker = document.querySelector("#hue-picker");
-    picker.style.left = xPercentage + "%";
-    h = xPercentage / 100;
+    picker.style.top = yPercentage + "%";
+    h = 1 - yPercentage / 100;
     hueChange();
     break;
    case "alpha-event":
-    xPercentage = (mouseX - 10 - trackedPos.x) / 220 * 100;
-    (xPercentage > 100) ? xPercentage = 100: (xPercentage < 0) ? xPercentage = 0 : null;
-    xPercentage = xPercentage.toFixed(2);
+    yPercentage = (mouseY - trackedPos.y) / 176 * 100;
+    (yPercentage > 100) ? yPercentage = 100: (yPercentage < 0) ? yPercentage = 0 : null;
+    yPercentage = yPercentage.toFixed(2);
     picker = document.querySelector("#alpha-picker");
-    picker.style.left = xPercentage + "%";
-    a = xPercentage / 100;
+    picker.style.top = yPercentage + "%";
+    alpha = 1 - yPercentage / 100;
     colorChange();
     break;
   }
@@ -188,11 +284,11 @@ function touchMove(event) {
 
 function csDown(event) {
  tracked = event.currentTarget;
- let xPercentage = ((event.offsetX + 1) / 240) * 100;
- let yPercentage = ((event.offsetY + 1) / 160) * 100;
+ let xPercentage: any = ((event.offsetX + 1) / 176) * 100;
+ let yPercentage: any = ((event.offsetY + 1) / 176) * 100;
  yPercentage = yPercentage.toFixed(2);
  xPercentage = xPercentage.toFixed(2)
- let picker = document.querySelector("#colorsquare-picker");
+ let picker: HTMLElement = document.querySelector("#colorsquare-picker");
  picker.style.top = yPercentage + "%";
  picker.style.left = xPercentage + "%";
  s = xPercentage / 100;
@@ -203,13 +299,13 @@ function csDown(event) {
 function csDownTouch(event) {
  tracked = event.currentTarget;
  let rect = event.target.getBoundingClientRect();
- let offsetX = event.targetTouches[0].clientX - rect.left;
- let offsetY = event.targetTouches[0].clientY - rect.top;
- let xPercentage = ((offsetX + 1) / 240) * 100;
- let yPercentage = ((offsetY + 1) / 160) * 100;
+ let offsetX: number = event.targetTouches[0].clientX - rect.left;
+ let offsetY: number = event.targetTouches[0].clientY - rect.top;
+ let xPercentage: any = ((offsetX + 1) / 176) * 100;
+ let yPercentage: any = ((offsetY + 1) / 176) * 100;
  yPercentage = yPercentage.toFixed(2);
  xPercentage = xPercentage.toFixed(2)
- let picker = document.querySelector("#colorsquare-picker");
+ let picker: HTMLElement = document.querySelector("#colorsquare-picker");
  picker.style.top = yPercentage + "%";
  picker.style.left = xPercentage + "%";
  s = xPercentage / 100;
@@ -223,75 +319,90 @@ function mouseUp(event) {
 
 function hueDown(event) {
  tracked = event.currentTarget;
- let xPercentage = ((event.offsetX - 9) / 220) * 100;
- xPercentage = xPercentage.toFixed(2);
- let picker = document.querySelector("#hue-picker");
- picker.style.left = xPercentage + "%";
- h = xPercentage / 100;
+ let yPercentage: any = ((event.offsetY) / 176) * 100;
+ yPercentage = yPercentage.toFixed(2);
+ let picker: HTMLElement = document.querySelector("#hue-picker");
+ picker.style.top = yPercentage + "%";
+ h = 1 - yPercentage / 100;
  hueChange();
 }
 
 function hueDownTouch(event) {
  tracked = event.currentTarget;
  let rect = event.target.getBoundingClientRect();
- let offsetX = event.targetTouches[0].clientX - rect.left;
- let xPercentage = ((offsetX - 9) / 220) * 100;
- xPercentage = xPercentage.toFixed(2);
- let picker = document.querySelector("#hue-picker");
- picker.style.left = xPercentage + "%";
- h = xPercentage / 100;
+ let offsetY: number = event.targetTouches[0].clientY - rect.top;
+ let yPercentage: any = ((offsetY) / 176) * 100;
+ yPercentage = yPercentage.toFixed(2);
+ let picker: HTMLElement = document.querySelector("#hue-picker");
+ picker.style.top = yPercentage + "%";
+ h = 1 - yPercentage / 100;
  hueChange();
 }
 
 function hueChange() {
- let rgb = hsvToRgb(h, 1, 1)
- let colorsquare = document.querySelector(".colorsquare")
- colorsquare.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`;
+ let rgb: number[] = hsvToRgb(h, 1, 1)
+ let colorArea: HTMLElement = document.querySelector("#colorArea");
+ let picker: HTMLElement = document.querySelector("#hue-picker");
+ colorArea.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`;
+ picker.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`;
  colorChange();
 }
 
 function colorChange() {
- let rgb = hsvToRgb(h, s, v);
+ let rgb: number[] = hsvToRgb(h, s, v);
  r = rgb[0];
  g = rgb[1];
  b = rgb[2];
  hexValue = RGBAToHex();
- let pickedColor = document.querySelector(".color-picked");
- pickedColor.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+ let alphaSliderColor: HTMLElement = document.querySelector("#alphaSliderColor");
+ let alphaPicker: HTMLElement = document.querySelector("#alpha-picker");
+ let colorsquarePicker: HTMLElement = document.querySelector("#colorsquare-picker");
+ alphaPicker.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+ colorsquarePicker.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)`;
+ alphaSliderColor.style.background = `linear-gradient(to bottom, rgba(${rgb[0]},${rgb[1]},${rgb[2]},1) 0%, rgba(0, 0, 0, 0) 100%)`;
+ if (isMainOrSub){
+  let mainSelectedColor: HTMLElement = document.querySelector('.mainSelectedColor');
+  mainSelectedColor.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+  mainColor = hexValue;
+ } else {
+  let subSelectedColor: HTMLElement = document.querySelector('.subSelectedColor');
+  subSelectedColor.style.background = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+  subColor = hexValue;
+ }
  colorChangeCallback();
 }
 
 function alphaDown(event) {
  tracked = event.currentTarget;
- let xPercentage = ((event.offsetX - 9) / 220) * 100;
- xPercentage = xPercentage.toFixed(2);
- let picker = document.querySelector("#alpha-picker");
- picker.style.left = xPercentage + "%";
- a = xPercentage / 100;
+ let yPercentage: any = ((event.offsetY) / 176) * 100;
+ yPercentage = yPercentage.toFixed(2);
+ let picker: HTMLElement = document.querySelector("#alpha-picker");
+ picker.style.top = yPercentage + "%";
+ alpha = 1 - yPercentage / 100;
  colorChange();
 }
 
 function alphaDownTouch(event) {
  tracked = event.currentTarget;
  let rect = event.target.getBoundingClientRect();
- let offsetX = event.targetTouches[0].clientX - rect.left;
- let xPercentage = ((offsetX - 9) / 220) * 100;
- xPercentage = xPercentage.toFixed(2);
- let picker = document.querySelector("#alpha-picker");
- picker.style.left = xPercentage + "%";
- a = xPercentage / 100;
+ let offsetY: number = event.targetTouches[0].clientY - rect.top;
+ let yPercentage: any = ((offsetY) / 176) * 100;
+ yPercentage = yPercentage.toFixed(2);
+ let picker: HTMLElement = document.querySelector("#alpha-picker");
+ picker.style.top = yPercentage + "%";
+ alpha = 1 - yPercentage / 100;
  colorChange();
 }
 
 //Math algorithms
 function hsvToRgb(h, s, v) {
- var r, g, b;
+ var r: number, g: number, b: number;
 
- var i = Math.floor(h * 6);
- var f = h * 6 - i;
- var p = v * (1 - s);
- var q = v * (1 - f * s);
- var t = v * (1 - (1 - f) * s);
+ var i: number = Math.floor(h * 6);
+ var f: number = h * 6 - i;
+ var p: number = v * (1 - s);
+ var q: number = v * (1 - f * s);
+ var t: number = v * (1 - (1 - f) * s);
 
  switch (i % 6) {
   case 0:
@@ -318,9 +429,9 @@ function hsvToRgb(h, s, v) {
 }
 
 function RGBAToHex() {
- let rHex = r.toString(16);
- let gHex = g.toString(16);
- let bHex = b.toString(16);
+ let rHex: string = r.toString(16);
+ let gHex: string = g.toString(16);
+ let bHex: string = b.toString(16);
 
  if (rHex.length == 1)
   rHex = "0" + rHex;
@@ -391,262 +502,231 @@ function rgbToHSV(r, g, b, update) {
 }
 </script>
 
-<style>
-.main-container {
-	width: 240px;
-	height: 265px;
-	background: #f2f2f2;
-	border-radius: 1px;
-	-webkit-box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.51);
-	-moz-box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.51);
-	box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.51);
+
+<div class="toolArea">
+  <div class="toolNameArea">
+    <coral-icon icon="ColorWheel" size="XS"></coral-icon>
+    <span class="toolName">Picker</span>
+  </div>
+  <div class="toolAreaContainer" id="pickerAreaContainer">
+    <div id="colorAreaContainer">
+      <div id="colorArea">
+        <div class="saturation-gradient">
+          <div class="value-gradient">
+            <div id="colorsquare-picker"></div>
+            <div id="colorsquare-event" on:mousedown={csDown} on:touchstart={csDownTouch}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="colorSlider">
+      <div id="hue-picker"></div>
+      <div id="hue-event" on:mousedown={hueDown} on:touchstart={hueDownTouch}></div>
+    </div>
+    <div id="alphaSlider">
+      <div id="alphaSliderColor">
+        <div id="alpha-picker"></div>
+        <div id="alpha-event" on:mousedown={alphaDown} on:touchstart={alphaDownTouch}></div>
+      </div>
+    </div>
+  </div>
+  <div class="colorSelectContainer">
+    <div class="selectColor">
+      <button id="maincolor" class="colorSwatch">
+        <div class="mainSelectedColor"></div>
+      </button>
+      <button id="subcolor" class="colorSwatch">
+        <div class="subSelectedColor"></div>
+      </button>
+    </div>
+    <label for="hexInput" class="coral-FieldLabel">Hex: </label>
+    <input type="text" is="coral-textfield" variant="quiet" aria-label="text input" bind:value={hexValue} id="hexInput">
+    <input type="text" is="coral-textfield" variant="quiet" aria-label="text input" bind:value={alpha100} id="alphaInput">
+  </div>
+</div>
+<style lang="scss">
+.toolArea {
+  width: 304px;
+}
+#colorAreaContainer {
+  grid-column: 1 / 9;
+  position: relative;
   -webkit-touch-callout: none;
-    -webkit-user-select: none;
-     -khtml-user-select: none;
-       -moz-user-select: none;
-        -ms-user-select: none;
-            user-select: none;
+  -webkit-user-select: none;
+   -khtml-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+  &:before {
+    content:"";
+    display: block;
+    padding-top: 100%;
+  }
+  #colorArea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    border-radius: 4px;
+    background: #ff0000;
+    background-image: linear-gradient(rgba(0, 0, 0, 0), rgb(0, 0, 0)),linear-gradient(to right, rgb(255, 255, 255), rgba(255, 255, 255, 0));
+    .saturation-gradient {
+      background: linear-gradient(to right, rgb(255, 255, 255), rgba(255, 255, 255, 0));
+      width: 176px;
+      height: 176px;
+    }
+    .value-gradient {
+      background: linear-gradient(to top, rgb(0, 0, 0), rgba(0, 0, 0, 0));
+      width: 176px;
+      height: 176px;
+    }
+  }
+}
+#colorSlider {
+  grid-column: 9 / 11;
+  border-radius: 4px;
+  background: linear-gradient(to top, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%);
+}
+#alphaSlider {
+  position: relative;
+  z-index: 0;
+  grid-column: 11 /13;
+  border-radius: 4px;
+  background: rgb(204, 204, 204);
+  background-image:
+    linear-gradient(45deg, rgb(255, 255, 255) 25%, transparent 0),
+    linear-gradient(45deg, transparent 75%, rgb(255, 255, 255) 0),
+    linear-gradient(45deg, rgb(255, 255, 255) 25%, transparent 0),
+    linear-gradient(45deg, transparent 75%, rgb(255, 255, 255) 0);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px, 8px 8px, 16px 16px;
+  #alphaSliderColor {
+    position: absolute;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: 3px;
+    background-image: linear-gradient(to bottom, #ff0000 0%, rgba(0, 0, 0, 0) 100%);
+  }
+}
+.colorSelectContainer {
+  display: flex;
+  align-items: center;
+  margin: 16px;
+  .selectColor {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    margin-right: 16px;
+    button {
+      width: 24px;
+      height: 24px;
+      border-radius: 2px!important;
+    }
+    .mainSelectedColor, .subSelectedColor {
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+    }
+    #maincolor {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+    }
+    #subcolor {
+      position: absolute;
+      cursor: pointer;
+      top: 10px;
+      left: 10px;
+    }
+  }
+  label {
+    margin-right: 16px;
+  }
+  input {
+    &:nth-of-type(1) {
+      width: 36%;
+      margin-right: 16px;
+    }
+    &:nth-of-type(2) {
+      width: 24%;
+      margin-right: 16px;
+    }
+  }
 }
 
-.saturation-gradient {
-	background: linear-gradient(to right, rgb(255, 255, 255), rgba(255, 255, 255, 0));
-	width: 240px;
-	height: 160px;
+.colorSwatch {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 1px!important;
+  cursor: pointer;
+  background: rgb(204, 204, 204);
+  background-image:
+    linear-gradient(45deg, rgb(255, 255, 255) 25%, transparent 0),
+    linear-gradient(45deg, transparent 75%, rgb(255, 255, 255) 0),
+    linear-gradient(45deg, rgb(255, 255, 255) 25%, transparent 0),
+    linear-gradient(45deg, transparent 75%, rgb(255, 255, 255) 0);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px, 8px 8px, 16px 16px;
+  transition: border-color 130ms ease-in-out, box-shadow 130ms ease-in-out;
+  outline: none;
 }
-
-.value-gradient {
-	background: linear-gradient(to top, rgb(0, 0, 0), rgba(0, 0, 0, 0));
-	overflow: hidden;
-	width: 240px;
-	height: 160px;
-}
-
-.hue-selector {
-	background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
-	margin: 15px 10px 10px 10px;
-	border-radius: 10px;
-	height: 10px;
-}
-
 #hue-picker {
-	background: #FFF;
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-	left: 0%;
-	position: relative;
-	cursor: default;
-	transform: translate(-5px, -1px);
-	-webkit-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
-	-moz-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
-	box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  left: 50%;
+  position: relative;
+  transform: translate(-6px, -7px);
 }
 
 #hue-event {
-	width: 236px;
-	height: 14px;
-	transform: translate(-8px, -14px);
-	cursor: default;
+  width: 32px;
+  height: 158px;
+  cursor: pointer;
+  transform: translate(-6px, -12px);
   touch-action: none;
-}
-
-.alpha-selector {
-	background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%);
-	background-size: 10px 10px;
-	background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
-	margin: 10px 10px;
-	border-radius: 10px;
-	height: 10px;
-	position: relative;
 }
 
 #alpha-picker {
-	background: #FFF;
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-	left: 100%;
-	position: relative;
-	cursor: default;
-	transform: translate(-5px, -11px);
-	-webkit-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
-	-moz-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
-	box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.67);
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  left: 50%;
+  position: relative;
+  transform: translate(-6px, -7px);
 }
 
 #alpha-event {
-	width: 236px;
-	height: 14px;
-	transform: translate(-8px, -24px);
-	cursor: default;
+  width: 32px;
+  height: 158px;
+  cursor: pointer;
+  transform: translate(-6px, -12px);
   touch-action: none;
-}
-
-.alpha-value {
-	background: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
-	width: 100%;
-	height: 100%;
-	border-radius: 10px;
-}
-
-.colorsquare {
-	background: rgb(255, 0, 0);
 }
 
 #colorsquare-picker {
-	margin: 0;
-	padding: 0;
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-	border: 2px solid #FFFB;
-	position: relative;
-	transform: translate(-9px, -9px);
-	left: 100%;
+  margin: 0;
+  padding: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  position: relative;
+  transform: translate(-6px, -6px);
+  left: 100%;
 }
 
 #colorsquare-event {
-	width: 100%;
-	height: 100%;
-	position: relative;
-	transform: translate(0, -16px);
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  position: relative;
+  transform: translate(0, -12px);
   touch-action: none;
 }
-
-.color-info-box {
-	margin: 10px;
-	width: 100%;
-	height: 22px;
-	vertical-align: middle;
-	position: relative;
-}
-
-.color-picked {
-	width: 18px;
-	height: 18px;
-	border-radius: 2px;
-	background: rgba(255, 0, 0, 1);
-	display: inline-block;
-}
-
-.color-picked-bg {
-	background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%);
-	background-size: 10px 10px;
-	background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
-	border: 2px solid #FFF;
-	border-radius: 4px;
-	width: 18px;
-	height: 18px;
-	color: #fff;
-	display: inline-block;
-}
-
-.hex-text-block {
-	display: inline-block;
-	background: white;
-	border-radius: 2px;
-	padding: 2px;
-	border: 1px solid #e3e3e3;
-	height: 16px;
-	width: 54px;
-	vertical-align: top;
-	text-align: center;
-}
-
-.rgb-text-block {
-	display: inline-block;
-	background: white;
-	border-radius: 2px;
-	padding: 2px;
-	margin: 0 1px;
-	border: 1px solid #dcdcdc;
-	height: 16px;
-	width: 23px;
-	vertical-align: top;
-	text-align: center;
-}
-
-.rgb-text-div {
-	right: 10%;
-	display: inline-block;
-	vertical-align: top;
-	position: absolute;
-}
-
-.text-label {
-	position: relative;
-	top: -12px;
-	font-family: sans-serif;
-	font-size: small;
-  color:#888;
-}
-
-.text {
-	display: inline;
-	font-family: sans-serif;
-	margin: 0;
-	display: inline-block;
-	font-size: 12px;
-	font-size-adjust: 0.50;
-	position: relative;
-	top: -1px;
-  vertical-align: middle;
-  -webkit-touch-callout: all;
-    -webkit-user-select: all;
-     -khtml-user-select: all;
-       -moz-user-select: all;
-        -ms-user-select: all;
-            user-select: all;
-}
 </style>
-
-<div class="main-container">
-
-  <div class="colorsquare size">
-      <div class="saturation-gradient">
-          <div class="value-gradient">
-              <div id="colorsquare-picker"></div>
-              <div id="colorsquare-event" on:mousedown={csDown} on:touchstart={csDownTouch}></div>
-          </div>
-      </div>
-  </div>
-
-  <div class="hue-selector">
-      <div id="hue-picker"></div>
-      <div id="hue-event" on:mousedown={hueDown} on:touchstart={hueDownTouch}></div>
-  </div>
-
-  <div class="alpha-selector">
-      <div class="alpha-value"></div>
-      <div id="alpha-picker"></div>
-      <div id="alpha-event" on:mousedown={alphaDown} on:touchstart={alphaDownTouch}></div>
-  </div>
-
-  <div class="color-info-box">
-    <div class="color-picked-bg">
-      <div class="color-picked"></div>
-    </div>
-
-    <div class="hex-text-block">
-      <p class="text">{hexValue}</p>
-    </div>
-
-    <div class="rgb-text-div">
-      <div class="rgb-text-block">
-        <p class="text">{r}</p>
-        <p class="text-label">R</p>
-      </div>
-
-      <div class="rgb-text-block">
-        <p class="text">{g}</p>
-        <p class="text-label">G</p>
-      </div>
-
-      <div class="rgb-text-block">
-        <p class="text">{b}</p>
-        <p class="text-label">B</p>
-      </div>
-    </div>
-  </div>
-
-</div>
